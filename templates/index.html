@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT-SoVITS Web Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { 
+            padding: 20px;
+            background-color: white;
+            min-height: 100vh;
+        }
+        .form-group { 
+            margin-bottom: 1rem; 
+        }
+        .page-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2196F3;
+            font-size: 2rem;
+            font-weight: 500;
+        }
+        .alert { 
+            background-color: #e3f2fd;
+            border: none;
+            border-radius: 4px;
+            color: #333;
+            padding: 12px;
+            font-size: 14px;
+        }
+        #audioPlayer { 
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .loading { 
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            box-shadow: none;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            font-weight: normal;
+        }
+        .form-control {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 0.5rem;
+        }
+        .form-control:focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        .btn-primary {
+            background-color: #2196F3;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .btn-primary:hover {
+            background-color: #1976D2;
+        }
+        .drag-area {
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            text-align: center;
+            background-color: #fafafa;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        .drag-area.active {
+            border-color: #2196F3;
+            background-color: #f5f5f5;
+        }
+        .drag-area i {
+            font-size: 24px;
+            color: #666;
+        }
+        .drag-area h4 {
+            margin: 8px 0;
+            color: #333;
+            font-size: 14px;
+            font-weight: normal;
+        }
+        .drag-area p {
+            color: #666;
+            margin-bottom: 0;
+            font-size: 12px;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #2196F3;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .left-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+        .right-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+        @media (max-width: 992px) {
+            .main-content {
+                flex-direction: column;
+            }
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+        }
+        .parameter-slider {
+            margin-bottom: 1rem;
+        }
+        .parameter-slider label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .parameter-value {
+            color: #2196F3;
+            font-weight: 500;
+        }
+        .form-label {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        select.form-control {
+            height: 38px;
+        }
+        .form-check-label {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">GPT-SoVITS 推理界面</h1>
+
+        <form id="synthesisForm" enctype="multipart/form-data">
+            <div class="main-content">
+                <div class="left-panel">
+                    <div class="card">
+                        <div class="card-header">
+                            模型选择
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">GPT模型</label>
+                                <select class="form-control" id="gptModel" name="gpt_model">
+                                    {% for model in gpt_models %}
+                                    <option value="{{ model }}">{{ model }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">SoVITS模型</label>
+                                <select class="form-control" id="sovitsModel" name="sovits_model">
+                                    {% for model in sovits_models %}
+                                    <option value="{{ model }}">{{ model }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            参考音频设置
+                        </div>
+                        <div class="card-body">
+                            <div class="drag-area" id="dragArea">
+                                <input type="file" id="referenceAudio" name="reference_audio" accept="audio/*" hidden required>
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h4>拖拽音频文件到这里</h4>
+                                <p>或者点击选择文件 (3-10秒)</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <audio id="referenceAudioPlayer" controls style="width: 100%; margin-bottom: 1rem; display: none;"></audio>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="refTextFree" name="ref_text_free">
+                                <label class="form-check-label" for="refTextFree">开启无参考文本模式</label>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">参考音频文本</label>
+                                <textarea class="form-control" id="promptText" name="prompt_text" rows="3" placeholder="请输入参考音频的文本内容..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">参考音频语种</label>
+                                <select class="form-control" id="promptLanguage" name="prompt_language">
+                                    {% for lang in languages %}
+                                    <option value="{{ lang }}">{{ lang }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="card">
+                        <div class="card-header">
+                            合成设置
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">需要合成的文本</label>
+                                <textarea class="form-control" id="text" name="text" rows="4" required placeholder="请输入需要合成的文本内容..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">文本语种</label>
+                                <select class="form-control" id="textLanguage" name="text_language">
+                                    {% for lang in languages %}
+                                    <option value="{{ lang }}">{{ lang }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">文本切分方式</label>
+                                <select class="form-control" id="howToCut" name="how_to_cut">
+                                    {% for option in cut_options %}
+                                    <option value="{{ option }}">{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <h6 class="form-label">采样参数设置</h6>
+                                <div class="parameter-slider">
+                                    <label>
+                                        Top K
+                                        <span class="parameter-value" id="topKValue">5</span>
+                                    </label>
+                                    <input type="range" class="form-range" id="topK" name="top_k" value="5" min="1" max="100">
+                                </div>
+                                <div class="parameter-slider">
+                                    <label>
+                                        Top P
+                                        <span class="parameter-value" id="topPValue">1</span>
+                                    </label>
+                                    <input type="range" class="form-range" id="topP" name="top_p" value="1" min="0" max="1" step="0.05">
+                                </div>
+                                <div class="parameter-slider">
+                                    <label>
+                                        Temperature
+                                        <span class="parameter-value" id="temperatureValue">1</span>
+                                    </label>
+                                    <input type="range" class="form-range" id="temperature" name="temperature" value="1" min="0" max="1" step="0.05">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary" id="synthesizeBtn">
+                    合成语音
+                </button>
+                <div id="result" class="mt-3">
+                    <audio id="audioPlayer" controls style="display: none;"></audio>
+                </div>
+            </div>
+        </form>
+
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status"></div>
+            <span>正在处理中...</span>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const dragArea = document.querySelector('#dragArea');
+            const input = document.querySelector('#referenceAudio');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dragArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dragArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dragArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                dragArea.classList.add('active');
+            }
+
+            function unhighlight(e) {
+                dragArea.classList.remove('active');
+            }
+
+            dragArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                input.files = files;
+                updateFileInfo(files[0]);
+            }
+
+            dragArea.addEventListener('click', () => {
+                input.click();
+            });
+
+            input.addEventListener('change', function() {
+                if (this.files.length) {
+                    updateFileInfo(this.files[0]);
+                }
+            });
+
+            function updateFileInfo(file) {
+                const fileName = file.name;
+                dragArea.querySelector('h4').textContent = `已选择: ${fileName}`;
+                dragArea.querySelector('p').style.display = 'none';
+                
+                // Preview reference audio
+                const audioPlayer = document.getElementById('referenceAudioPlayer');
+                audioPlayer.src = URL.createObjectURL(file);
+                audioPlayer.style.display = 'block';
+            }
+
+            $('#topK').on('input', function() {
+                $('#topKValue').text($(this).val());
+            });
+
+            $('#topP').on('input', function() {
+                $('#topPValue').text($(this).val());
+            });
+
+            $('#temperature').on('input', function() {
+                $('#temperatureValue').text($(this).val());
+            });
+
+            $('#gptModel').change(function() {
+                $.post('/change_model', {
+                    type: 'gpt',
+                    path: $(this).val()
+                });
+            });
+
+            $('#sovitsModel').change(function() {
+                $.post('/change_model', {
+                    type: 'sovits',
+                    path: $(this).val()
+                });
+            });
+
+            $('#synthesisForm').submit(function(e) {
+                e.preventDefault();
+                
+                $('.loading').fadeIn();
+                $('#synthesizeBtn').prop('disabled', true);
+                $('#audioPlayer').hide();
+
+                var formData = new FormData(this);
+
+                $.ajax({
+                    url: '/synthesize',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    xhrFields: {
+                        responseType: 'blob'
+                    },
+                    success: function(response) {
+                        var url = URL.createObjectURL(response);
+                        $('#audioPlayer').attr('src', url).fadeIn();
+                    },
+                    error: function(xhr) {
+                        alert('Error: ' + xhr.responseText);
+                    },
+                    complete: function() {
+                        $('.loading').fadeOut();
+                        $('#synthesizeBtn').prop('disabled', false);
+                    }
+                });
+            });
+
+            $('#refTextFree').change(function() {
+                if ($(this).is(':checked')) {
+                    $('#promptText').prop('disabled', true);
+                } else {
+                    $('#promptText').prop('disabled', false);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
